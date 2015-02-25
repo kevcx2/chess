@@ -1,0 +1,3 @@
+class NoPossibleMoveError < ArgumentError
+
+end
