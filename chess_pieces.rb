@@ -1,8 +1,8 @@
 require 'byebug'
 
 class Piece
-  attr_accessor :pos
-  attr_reader :color, :board
+  attr_accessor :pos, :board
+  attr_reader :color
 
   def initialize(pos, color, board)
     @pos = pos
@@ -10,28 +10,34 @@ class Piece
     @board = board
   end
 
-  def moves
-    []
-  end
-
-  def valid?(pos)
-    validity = true
-    return false if !pos.all? { |x| x.between?(0, @board.length - 1)}
-    if !@board[pos].nil? #change to address colors once we add opponent
-      return false if @board[pos].color == @color
-    end
-    true
-  end
+  protected
 
   def enemy?(pos)
     return false if @board[pos].nil?
     @color != @board[pos].color
   end
 
+  private
+
+  def valid?(pos, king_check = true)
+    return false if !pos.all? { |x| x.between?(0, @board.length - 1)}
+    if !@board[pos].nil?
+      return false if @board[pos].color == @color
+    end
+    return !king_in_check?(pos) if king_check == true
+    true
+  end
+
+  def king_in_check?(end_pos)
+    dup_board = @board.dup
+    dup_board.move(@pos, end_pos)
+    dup_board.check?(@color)
+  end
+
 end
 
 class SlidingPiece < Piece
-  def moves
+  def moves(king_check_flag = true)
 
     possible_moves = []
 
@@ -39,7 +45,7 @@ class SlidingPiece < Piece
       x = @pos[0]
       y = @pos[1]
       found_enemy = false
-      while valid?([x + pair[0], y + pair[1]]) && !found_enemy
+      while valid?([x + pair[0], y + pair[1]], king_check_flag) && !found_enemy
         x += pair[0]
         y += pair[1]
         possible_moves << [x, y]
@@ -56,8 +62,8 @@ class Bishop < SlidingPiece
   end
 
   def render_piece
-    return ' b ' if @color == :black
-    "[b]"
+    return '♝'.colorize(:color => :black) if @color == :black
+    "♝"
   end
 end
 
@@ -67,31 +73,29 @@ class Rook < SlidingPiece
   end
 
   def render_piece
-    return ' r ' if @color == :black
-    "[r]"
+    return '♜'.colorize(:color => :black) if @color == :black
+    "♜"
   end
 end
 
 class Queen < SlidingPiece
-  def move_dirs # turn into ONE LINER
-    directions = [1, 0, -1].repeated_permutation(2).to_a
-    directions.delete([0, 0])
-    directions
+  def move_dirs
+    directions = [1, 0, -1].repeated_permutation(2).to_a.reject {|pos| pos == [0, 0]}
   end
 
   def render_piece
-    return ' Q ' if @color == :black
-    "[Q]"
+    return '♛'.colorize(:color => :black) if @color == :black
+    "♛"
   end
 end
 
 class SteppingPiece < Piece
-  def moves
+  def moves(king_check_flag = true)
     possible_moves = []
     x = @pos[0]
     y = @pos[1]
     move_dirs.each do |pair|
-      if valid?([x + pair[0], y + pair[1]])
+      if valid?([x + pair[0], y + pair[1]], king_check_flag)
         possible_moves << [x + pair[0], y + pair[1]]
       end
     end
@@ -100,15 +104,13 @@ class SteppingPiece < Piece
 end
 
 class King < SteppingPiece
-  def move_dirs # turn into ONE LINER
-    directions = [1, 0, -1].repeated_permutation(2).to_a
-    directions.delete([0, 0])
-    directions
+  def move_dirs
+    directions = [1, 0, -1].repeated_permutation(2).to_a.reject {|pos| pos == [0, 0]}
   end
 
   def render_piece
-    return ' K ' if @color == :black
-    "[K]"
+    return '♚'.colorize(:color => :black) if @color == :black
+    "♚"
   end
 end
 
@@ -118,31 +120,35 @@ class Knight < SteppingPiece
   end
 
   def render_piece
-    return ' k ' if @color == :black
-    "[k]"
+    return '♞'.colorize(:color => :black) if @color == :black
+    "♞"
   end
 end
 
 class Pawn < SteppingPiece
-  def move_dirs
-    return [[1, 0]] if @color == :black
-    [[-1, 0]]
+  attr_reader :first_move
+
+  def initialize(pos, color, board)
+    super(pos, color, board)
+    @first_move = false
   end
 
-  # def moves
-  #   possible_moves = []
-  #   x = @pos[0]
-  #   y = @pos[1]
-  #   move_dirs.each do |pair|
-  #     if valid?([x + pair[0], y + pair[1]])
-  #       possible_moves << [x + pair[0], y + pair[1]]
-  #     end
-  #   end
-  #   possible_moves
-  # end
+  def move_dirs
+    if @first_move == true
+      return [[1, 0]] if @color == :black
+      return [[-1, 0]]
+    else
+      return [[1, 0], [2, 0]] if @color == :black
+      return [[-1, 0], [-2, 0]]
+    end
+  end
+
+  def first_move
+    @first_move = true
+  end
 
   def render_piece
-    return ' p ' if @color == :black
-    "[p]"
+    return '♟'.colorize(:color => :black) if @color == :black
+    "♟"
   end
 end
